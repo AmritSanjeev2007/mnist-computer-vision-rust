@@ -1,0 +1,19 @@
+{
+    "sct-list": [
+        {
+            "name": "sct_hello_world",
+            "path": "src/bin/sct_hello_world.rs",
+            "options": []
+        },
+        {
+            "name": "sct_imagedata",
+            "path": "src/bin/sct_imagedata.rs",
+            "options": []
+        },
+        {
+            "name": "sct_training_iterator",
+            "path": "src/bin/sct_training_iterator.rs",
+            "options": []
+        }
+    ]
+}
