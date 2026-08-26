@@ -37,8 +37,8 @@ pub fn get_file_readers_for_training_data(imageset: &std::path::Path, labelset: 
         return Err(format!("Failed to open labels dataset due to error: {:?}", err));
     }
 
-    let mut images_reader = std::io::BufReader::new(images_file_desc.unwrap());
-    let mut labels_reader = std::io::BufReader::new(labels_file_desc.unwrap());
+    let images_reader = std::io::BufReader::new(images_file_desc.unwrap());
+    let labels_reader = std::io::BufReader::new(labels_file_desc.unwrap());
 
     return Ok((images_reader, labels_reader));
 }
@@ -80,13 +80,11 @@ impl TrainingMetadata
 
     /// Validates the metadata with respect to the datasets.
     pub const fn is_valid(&self) -> bool {
-        return (
-            self.imageset_magic_number == constants::IMAGE_DATASET_MAGIC_NUMBER &&
+        return self.imageset_magic_number == constants::IMAGE_DATASET_MAGIC_NUMBER &&
             self.labelset_magic_number == constants::LABEL_DATASET_MAGIC_NUMBER &&
             self.images_count == self.labels_count &&
             self.image_rows_count == constants::IMAGE_HEIGHT &&
-            self.image_columns_count == constants::IMAGE_WIDTH
-        );
+            self.image_columns_count == constants::IMAGE_WIDTH;
     } 
 }
 

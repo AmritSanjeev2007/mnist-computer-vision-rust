@@ -37,7 +37,7 @@ impl TrainingSample
         return Some(self.answer
             .iter()
             .enumerate()
-            .max_by(|(a1,a2), (b1, b2)| a2.total_cmp(b2))?
+            .max_by(|(_, a2), (_, b2)| a2.total_cmp(b2))?
             .0 as u8
         );
     }

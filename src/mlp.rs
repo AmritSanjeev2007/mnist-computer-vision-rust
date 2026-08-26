@@ -22,6 +22,7 @@ fn softmax(x: &ndarray::Array1<f32>) -> ndarray::Array1<f32>
 }
 
 /// A simple multi-layer perceptron (MLP) with a customizable structure (neurons per layer).
+#[derive(Debug)]
 pub struct MultiLayerPerceptron
 {
     _neurons_per_layer  : Vec<usize>,
@@ -54,17 +55,51 @@ impl MultiLayerPerceptron
         };
     }
 
+    /// This function validates whether the structure of this MLP is logically correct.
+    /// That is, it checks whether the number of layer connections satisfies the number of layers and
+    /// whether dimensions of the layer connections (weights) truly related two layers.
+    pub fn validate(&self) -> Result<(), String>
+    {
+        if self._neurons_per_layer.len() < 2 { return Err(format!("A valid MLP requires at least 2 layers.")); }
+        if self._weights.len() != self._biases.len() { return Err(format!("Count of Weights and Biases must be the same.")); }
+        if self._neurons_per_layer.len() != self._weights.len() + 1 {
+            return Err(format!("Number of layer connections do not satisfy the number of layers."));
+        }
+        if self._neurons_per_layer.iter().any(|x| *x == 0) {
+            return Err(format!("An MLP cannot have a layer with 0 neurons."));
+        }
+
+        for i in 0..(self._neurons_per_layer.len() - 1) {
+            let rows = self._neurons_per_layer[i + 1];
+            let columns = self._neurons_per_layer[i];
+
+            if self._weights[i].dim() != (rows, columns) {
+                return Err(format!("Layer connection {i} weights do not have the correct dimentions."));
+            }
+            if self._biases[i].len() != rows {
+                return Err(format!("Layer connection {i} biases do not have the correct dimentions."));
+            }
+        }
+
+        return Ok(());
+    } 
+
+    /// Tries to create a new multi-layer perceptron from its struct data members.
+    /// Note that this function validates whether the structure of the specified data is logically correct.
+    pub fn from_data(neurons_per_layer: Vec<usize>, weights: Vec<ndarray::Array2<f32>>, biases: Vec<ndarray::Array1<f32>>) -> Result<Self, String> 
+    {
+        let mlp = Self { _neurons_per_layer: neurons_per_layer, _weights: weights, _biases: biases };
+        mlp.validate()?;
+
+        return Ok(mlp);
+    }
+
     /// Returns the number of layers in the multi-layer perceptron.
     pub fn num_layers(&self) -> usize { return self._neurons_per_layer.len(); }
 
-    /// Tries to retrieve the number of neurons in the queried `layer`. Note: `layer := 0` corresponds to the input/first layer.
-    pub fn neurons_per_layer(&self, layer: usize) -> Result<usize, String>
-    {
-        if layer >= self._neurons_per_layer.len() 
-        { 
-            return Err(format!("Error: Out of bounds (max: {}), cannot get neurons in the {}-th layer", self._neurons_per_layer.len(), layer)); 
-        }
-        return Ok(*self._neurons_per_layer.get(layer).unwrap()); 
+    /// Retrieves the neurons per layer of this multi-layer perceptron.
+    pub fn get_neurons_per_layer(&self) -> &Vec<usize> {
+        return &self._neurons_per_layer;
     }
 
     /// Returns whether this MLP is "structurally similar" to another MLP. Two MLPs are considered similar if they have the same number of layers
@@ -181,6 +216,28 @@ impl Clone for MultiLayerPerceptron
     }
 }
 
+impl Default for MultiLayerPerceptron
+{
+    /// Creates a new (default-initialized) multi-layer perceptron.
+    fn default() -> Self {
+        return MultiLayerPerceptron {
+            _neurons_per_layer  : Vec::default(),
+            _weights            : Vec::default(),
+            _biases             : Vec::default()
+        };
+    }
+}
+
+impl PartialEq for MultiLayerPerceptron
+{
+    /// Returns true if two multi-layer perceptrons are equal.
+    fn eq(&self, other: &Self) -> bool {
+        return  self.is_similar_to(other) &&
+                self._weights == other._weights &&
+                self._biases == other._biases
+    }
+}
+
 
 #[cfg(test)]
 mod tests
@@ -223,8 +280,8 @@ mod tests
         let mlp = MultiLayerPerceptron::new(vec![24, 5, 46].into_iter());
 
         assert_eq!(mlp.num_layers(), 3);
-        assert_eq!(mlp.neurons_per_layer(2).unwrap(), 46);
-        assert!(mlp.neurons_per_layer(25).is_err());
+        assert_eq!(*mlp.get_neurons_per_layer().get(2).unwrap(), 46);
+        assert!(mlp.get_neurons_per_layer().get(25).is_none());
 
         assert_eq!(mlp.get_weight_matrix(0).unwrap().len(), 24 * 5);
         assert_eq!(mlp.get_weight_matrix(1).unwrap().dim(), (46, 5));
@@ -261,10 +318,85 @@ mod tests
 
         assert!(_is_roughly_equal(*mlp.get_bias_vector(0).unwrap().get(49).unwrap(), 49_f32.exp(), 0.002));
         assert!(_is_roughly_equal(*mlp.get_bias_vector(0).unwrap().get(7).unwrap(), 7_f32.exp(), 0.002));
+
+        assert!(mlp.set_weight_matrix(2, |x| *x.1 = x.0.0 as f32).is_err());
+        assert!(mlp.set_bias_vector(2, |x| *x.1 = x.0 as f32).is_err());
     }
 
     #[test]
     fn test_mlp_computation() {
-        
+        let mut mlp = MultiLayerPerceptron::new(vec![2, 2, 2].into_iter());
+
+        mlp.set_weight_matrix(0, |entry| {
+            let ((row, column), value) = entry;
+            *value = match (row, column) {
+                (0, 0) => 1.,
+                (0, 1) => -1.,
+                (1, 0) => 0.5,
+                (1, 1) => 0.5,
+                _ => unreachable!(),
+            };
+        }).unwrap();
+        mlp.set_bias_vector(0, |entry| {
+            let (row, value) = entry;
+            *value = if row == 0 { 0. } else { 1. };
+        }).unwrap();
+        mlp.set_weight_matrix(1, |entry| {
+            let ((row, _column), value) = entry;
+            *value = if row == 0 { 1. } else { -1. };
+        }).unwrap();
+        mlp.set_bias_vector(1, |entry| *entry.1 = 0.).unwrap();
+
+        let output = mlp.compute(&ndarray::Array1::from_vec(vec![3., 1.]));
+        let expected = ndarray::Array1::from_vec(vec![0.9975, 0.0025]);
+
+        assert!(_is_roughly_equal(output[0], expected[0], 0.001));
+        assert!(_is_roughly_equal(output[1], expected[1], 0.001));
+        assert!(_is_roughly_equal(output.sum(), 1., 0.001));
+    }
+
+    #[test]
+    fn test_from_data_accepts_matching_shapes() {
+        let weights = vec![ndarray::Array2::from_elem((2, 3), 1.)];
+        let biases = vec![ndarray::Array1::from_vec(vec![0.5, -0.5])];
+
+        let mlp = MultiLayerPerceptron::from_data(vec![3, 2], weights.clone(), biases.clone()).unwrap();
+
+        assert_eq!(mlp.get_neurons_per_layer(), &vec![3, 2]);
+        assert_eq!(mlp.get_weight_matrix(0).unwrap(), &weights[0]);
+        assert_eq!(mlp.get_bias_vector(0).unwrap(), &biases[0]);
+    }
+
+    #[test]
+    fn test_from_data_rejects_mismatched_shapes() {
+        let valid_weights = vec![ndarray::Array2::from_elem((2, 3), 1.)];
+        let valid_biases = vec![ndarray::Array1::from_elem(2, 0.)];
+
+        assert!(MultiLayerPerceptron::from_data(
+            vec![3, 2],
+            vec![ndarray::Array2::from_elem((1, 3), 1.)],
+            valid_biases.clone(),
+        ).is_err());
+        assert!(MultiLayerPerceptron::from_data(
+            vec![3, 2],
+            valid_weights,
+            vec![ndarray::Array1::from_elem(1, 0.)],
+        ).is_err());
+    }
+
+    #[test]
+    fn test_clone_copies_network_data() {
+        let mut original = MultiLayerPerceptron::new(vec![2, 2].into_iter());
+        original.set_weight_matrix(0, |entry| *entry.1 = 3.).unwrap();
+        original.set_bias_vector(0, |entry| *entry.1 = -2.).unwrap();
+
+        let mut clone = original.clone();
+        clone.set_weight_matrix(0, |entry| *entry.1 = 9.).unwrap();
+        clone.set_bias_vector(0, |entry| *entry.1 = 7.).unwrap();
+
+        assert_eq!(*original.get_weight_matrix(0).unwrap().get((0, 0)).unwrap(), 3.);
+        assert_eq!(*original.get_bias_vector(0).unwrap().get(0).unwrap(), -2.);
+        assert_eq!(*clone.get_weight_matrix(0).unwrap().get((0, 0)).unwrap(), 9.);
+        assert_eq!(*clone.get_bias_vector(0).unwrap().get(0).unwrap(), 7.);
     }
 }
