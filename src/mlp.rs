@@ -1,5 +1,5 @@
 /// Given an input vector, `x`, this function returns a new vector `relu(x)`.
-fn relu(x: &ndarray::Array1<f32>) -> ndarray::Array1<f32>
+pub fn relu(x: &ndarray::Array1<f32>) -> ndarray::Array1<f32>
 {
     fn _relu_single(n: &mut f32) -> () { *n = n.max(0.0); }
 
@@ -10,7 +10,7 @@ fn relu(x: &ndarray::Array1<f32>) -> ndarray::Array1<f32>
 }
 
 /// Given an input vector, `x`, this function returns a new vector `softmax(x)`.
-fn softmax(x: &ndarray::Array1<f32>) -> ndarray::Array1<f32>
+pub fn softmax(x: &ndarray::Array1<f32>) -> ndarray::Array1<f32>
 {
     fn _exp_accumulator(total: f32, x: &f32) -> f32 { return total + x.exp(); }
 
@@ -131,61 +131,55 @@ impl MultiLayerPerceptron
         }
     }
 
-    /// Tries to return a const reference to the weights at the specified index. Note: an index of 0 corresponds 
-    /// to the weight matrix relating the input/first layer and the next layer.
-    pub fn get_weight_matrix(&self, index: usize) -> Result<&ndarray::Array2<f32>, String>
-    {
-        if index >= self._weights.len()
-        { 
-            return Err(format!("Error: Out of bounds (max: {}), cannot get weight matrix in the {}-th layer", self._weights.len(), index));
-        }
+    /// Returns an immutable slice to the weights in this multi-layer perceptron.
+    pub fn get_weights(&self) -> &[ndarray::Array2<f32>] { return &self._weights; }
+    /// Returns an immutable slice to the biases in this multi-layer perceptron.
+    pub fn get_biases(&self) -> &[ndarray::Array1<f32>] { return &self._biases; }
 
-        return Ok(self._weights.get(index).unwrap());
-    }
-    /// Tries to return a const reference to the bias vector at the specified index. Note: an index of 0 corresponds 
-    /// to the bias vector relating the input/first layer and the next layer.
-    pub fn get_bias_vector(&self, index: usize) -> Result<&ndarray::Array1<f32>, String>
-    {
-        if index >= self._biases.len()
-        { 
-            return Err(format!("Error: Out of bounds (max: {}), cannot get bias vector in the {}-th layer", self._biases.len(), index));
-        }
-
-        return Ok(self._biases.get(index).unwrap());
-    }
-
-    /// Tries to transform the element of the weight matrix at the specified index using the specified callback. 
-    /// Note: an index of 0 corresponds to the weight matrix relating the input/first layer and the next layer.
-    pub fn set_weight_matrix<Func>(&mut self, index: usize, setter: Func) -> Result<(), String>
-    where
-        Func: FnMut(((usize, usize), &mut f32))
+    /// Returns an iterator that yields mutable references to the entries for the weight matrix in the `index`-th layer.
+    pub fn get_weight_iter_mut(&mut self, index: usize) -> Result<impl Iterator<Item = &mut f32>, String>
     {
         if index >= self._weights.len() { 
-            return Err(format!("Error: Out of bounds (max: {}), cannot set weight matrix in the {}-th layer", self._weights.len(), index));
+            return Err(format!("Error: Out of bounds (max: {}), cannot get weight matrix in the {index}-th layer", self._weights.len()));
         }
 
-        self._weights[index].indexed_iter_mut().for_each(setter);
-        return Ok(());
+        return Ok(self._weights[index].iter_mut());
     }
-
-    /// Tries to transform the element of the bias vector at the specified index using the specified callback. 
-    /// Note: an index of 0 corresponds to the bias vector relating the input/first layer and the next layer.
-    pub fn set_bias_vector<Func>(&mut self, index: usize, setter: Func) -> Result<(), String>
-    where
-        Func: FnMut((usize, &mut f32))
+    /// Returns an iterator that yields mutable references to the entries for the bias vector in the `index`-th layer.
+    pub fn get_bias_iter_mut(&mut self, index: usize) -> Result<impl Iterator<Item = &mut f32>, String>
     {
         if index >= self._biases.len() { 
-            return Err(format!("Error: Out of bounds (max: {}), cannot set bias vector in the {}-th layer", self._biases.len(), index));
+            return Err(format!("Error: Out of bounds (max: {}), cannot get bias vector in the {index}-th layer", self._weights.len()));
         }
 
-        self._biases[index].indexed_iter_mut().for_each(setter);
-        return Ok(());
+        return Ok(self._biases[index].iter_mut());
+    }
+
+    /// Returns an iterator that yields mutable references and its indices to the entries for the weight matrix in
+    /// the `index`-th layer.
+    pub fn get_weight_indexed_iter_mut(&mut self, index: usize) -> Result<impl Iterator<Item = ((usize, usize), &mut f32)>, String>
+    {
+        if index >= self._weights.len() { 
+            return Err(format!("Error: Out of bounds (max: {}), cannot get weight matrix in the {index}-th layer", self._weights.len()));
+        }
+
+        return Ok(self._weights[index].indexed_iter_mut());
+    }
+    /// Returns an iterator that yields mutable references and its indices to the entries for the bias vector in
+    /// the `index`-th layer.
+    pub fn get_bias_indexed_iter_mut(&mut self, index: usize) -> Result<impl Iterator<Item = (usize, &mut f32)>, String>
+    {
+        if index >= self._biases.len() { 
+            return Err(format!("Error: Out of bounds (max: {}), cannot get bias vector in the {index}-th layer", self._weights.len()));
+        }
+
+        return Ok(self._biases[index].indexed_iter_mut());
     }
 
     /// Computes the result of this multi-layer perceptron for the specified `input`.
     pub fn compute(&self, input: &ndarray::Array1<f32>) -> ndarray::Array1<f32>
     {
-        debug_assert!(self._neurons_per_layer.len() > 0, "Number of layers must be non-zero.");
+        debug_assert!(self._neurons_per_layer.len() >= 2, "Number of layers must be at least 2.");
         debug_assert_eq!(input.len(), self._neurons_per_layer[0], "Input vector size {} must match the number of neurons in the input layer {}.", input.len(), self._neurons_per_layer.len());
 
         let mut output: ndarray::Array1<f32> = input.clone();
@@ -283,13 +277,13 @@ mod tests
         assert_eq!(*mlp.get_neurons_per_layer().get(2).unwrap(), 46);
         assert!(mlp.get_neurons_per_layer().get(25).is_none());
 
-        assert_eq!(mlp.get_weight_matrix(0).unwrap().len(), 24 * 5);
-        assert_eq!(mlp.get_weight_matrix(1).unwrap().dim(), (46, 5));
-        assert!(mlp.get_weight_matrix(99).is_err());
+        assert_eq!(mlp.get_weights()[0].len(), 24 * 5);
+        assert_eq!(mlp.get_weights()[1].dim(), (46, 5));
+        assert!(mlp.get_weights().get(99).is_none());
 
-        assert_eq!(mlp.get_bias_vector(0).unwrap().dim(), 5);
-        assert_eq!(mlp.get_bias_vector(1).unwrap().dim(), 46);
-        assert!(mlp.get_bias_vector(1289).is_err());
+        assert_eq!(mlp.get_biases()[0].dim(), 5);
+        assert_eq!(mlp.get_biases()[1].dim(), 46);
+        assert!(mlp.get_biases().get(1289).is_none());
     }
 
     #[test]
@@ -306,29 +300,28 @@ mod tests
     }
 
     #[test]
-    fn test_weight_and_bias_setters() {
+    fn test_weight_and_bias_mut_iterators() {
         let mut mlp = MultiLayerPerceptron::new(vec![12, 64, 198].into_iter());
 
-        mlp.set_weight_matrix(1, |x| *x.1 = (x.0.0 as f32) * (x.0.1 as f32)).unwrap();
+        mlp.get_weight_indexed_iter_mut(1).unwrap().for_each(|((r,c),x)| *x = (r * c) as f32);
 
-        assert_eq!(*mlp.get_weight_matrix(1).unwrap().get((54, 9)).unwrap(), 54. * 9.);
-        assert_ne!(*mlp.get_weight_matrix(1).unwrap().get((24, 11)).unwrap(), 24. * 10.);
+        assert_eq!(*mlp.get_weights()[1].get((54, 9)).unwrap(), 54. * 9.);
+        assert_ne!(*mlp.get_weights()[1].get((24, 11)).unwrap(), 24. * 10.);
 
-        mlp.set_bias_vector(0, |x| *x.1 = (x.0 as f32).exp()).unwrap();
+        mlp.get_bias_indexed_iter_mut(0).unwrap().for_each(|(i,x)| *x = (i as f32).exp());
 
-        assert!(_is_roughly_equal(*mlp.get_bias_vector(0).unwrap().get(49).unwrap(), 49_f32.exp(), 0.002));
-        assert!(_is_roughly_equal(*mlp.get_bias_vector(0).unwrap().get(7).unwrap(), 7_f32.exp(), 0.002));
+        assert!(_is_roughly_equal(*mlp.get_biases()[0].get(49).unwrap(), 49_f32.exp(), 0.002));
+        assert!(_is_roughly_equal(*mlp.get_biases()[0].get(7).unwrap(), 7_f32.exp(), 0.002));
 
-        assert!(mlp.set_weight_matrix(2, |x| *x.1 = x.0.0 as f32).is_err());
-        assert!(mlp.set_bias_vector(2, |x| *x.1 = x.0 as f32).is_err());
+        assert!(mlp.get_weight_iter_mut(2).is_err());
+        assert!(mlp.get_bias_iter_mut(2).is_err());
     }
 
     #[test]
     fn test_mlp_computation() {
         let mut mlp = MultiLayerPerceptron::new(vec![2, 2, 2].into_iter());
 
-        mlp.set_weight_matrix(0, |entry| {
-            let ((row, column), value) = entry;
+        mlp.get_weight_indexed_iter_mut(0).unwrap().for_each(|((row, column), value)| {
             *value = match (row, column) {
                 (0, 0) => 1.,
                 (0, 1) => -1.,
@@ -336,16 +329,14 @@ mod tests
                 (1, 1) => 0.5,
                 _ => unreachable!(),
             };
-        }).unwrap();
-        mlp.set_bias_vector(0, |entry| {
-            let (row, value) = entry;
+        });
+        mlp.get_bias_indexed_iter_mut(0).unwrap().for_each(|(row, value)| {
             *value = if row == 0 { 0. } else { 1. };
-        }).unwrap();
-        mlp.set_weight_matrix(1, |entry| {
-            let ((row, _column), value) = entry;
+        });
+        mlp.get_weight_indexed_iter_mut(1).unwrap().for_each(|((row, _column), value)| {
             *value = if row == 0 { 1. } else { -1. };
-        }).unwrap();
-        mlp.set_bias_vector(1, |entry| *entry.1 = 0.).unwrap();
+        });
+        mlp.get_bias_iter_mut(1).unwrap().for_each(|value| *value = 0.);
 
         let output = mlp.compute(&ndarray::Array1::from_vec(vec![3., 1.]));
         let expected = ndarray::Array1::from_vec(vec![0.9975, 0.0025]);
@@ -363,8 +354,8 @@ mod tests
         let mlp = MultiLayerPerceptron::from_data(vec![3, 2], weights.clone(), biases.clone()).unwrap();
 
         assert_eq!(mlp.get_neurons_per_layer(), &vec![3, 2]);
-        assert_eq!(mlp.get_weight_matrix(0).unwrap(), &weights[0]);
-        assert_eq!(mlp.get_bias_vector(0).unwrap(), &biases[0]);
+        assert_eq!(mlp.get_weights()[0], weights[0]);
+        assert_eq!(mlp.get_biases()[0], biases[0]);
     }
 
     #[test]
@@ -387,16 +378,16 @@ mod tests
     #[test]
     fn test_clone_copies_network_data() {
         let mut original = MultiLayerPerceptron::new(vec![2, 2].into_iter());
-        original.set_weight_matrix(0, |entry| *entry.1 = 3.).unwrap();
-        original.set_bias_vector(0, |entry| *entry.1 = -2.).unwrap();
+        original.get_weight_iter_mut(0).unwrap().for_each(|value| *value = 3.);
+        original.get_bias_iter_mut(0).unwrap().for_each(|value| *value = -2.);
 
         let mut clone = original.clone();
-        clone.set_weight_matrix(0, |entry| *entry.1 = 9.).unwrap();
-        clone.set_bias_vector(0, |entry| *entry.1 = 7.).unwrap();
+        clone.get_weight_iter_mut(0).unwrap().for_each(|value| *value = 9.);
+        clone.get_bias_iter_mut(0).unwrap().for_each(|value| *value = 7.);
 
-        assert_eq!(*original.get_weight_matrix(0).unwrap().get((0, 0)).unwrap(), 3.);
-        assert_eq!(*original.get_bias_vector(0).unwrap().get(0).unwrap(), -2.);
-        assert_eq!(*clone.get_weight_matrix(0).unwrap().get((0, 0)).unwrap(), 9.);
-        assert_eq!(*clone.get_bias_vector(0).unwrap().get(0).unwrap(), 7.);
+        assert_eq!(*original.get_weights()[0].get((0, 0)).unwrap(), 3.);
+        assert_eq!(*original.get_biases()[0].get(0).unwrap(), -2.);
+        assert_eq!(*clone.get_weights()[0].get((0, 0)).unwrap(), 9.);
+        assert_eq!(*clone.get_biases()[0].get(0).unwrap(), 7.);
     }
 }

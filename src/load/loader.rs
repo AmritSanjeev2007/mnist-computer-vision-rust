@@ -85,7 +85,44 @@ impl TrainingMetadata
             self.images_count == self.labels_count &&
             self.image_rows_count == constants::IMAGE_HEIGHT &&
             self.image_columns_count == constants::IMAGE_WIDTH;
-    } 
+    }
+    /// Validates the metadata and if invalid, gives information about why.
+    /// It is guaranteed that if `.is_valid() == false` then `.validation_info().is_err() == true` and vice-versa.
+    pub fn validation_info(&self) -> Result<(), String>
+    {
+        if self.imageset_magic_number != constants::IMAGE_DATASET_MAGIC_NUMBER {
+            return Err(
+                format!("Incorrect imageset magic number {}, should be {}.", self.imageset_magic_number, constants::IMAGE_DATASET_MAGIC_NUMBER)
+            );
+        }
+
+        if self.labelset_magic_number != constants::LABEL_DATASET_MAGIC_NUMBER {
+            return Err(
+                format!("Incorrect labelset magic number {}, should be {}.", self.labelset_magic_number, constants::LABEL_DATASET_MAGIC_NUMBER)
+            );
+        }
+
+        if self.images_count != self.labels_count {
+            return Err(
+                format!("Count of images and labels must be the same but they are: {} != {}.", self.images_count, self.labels_count)
+            );
+        }
+
+        if self.image_rows_count != constants::IMAGE_HEIGHT {
+            return Err(
+                format!("Number of rows of images ({}) in imageset are not IMAGE_HEIGHT {}.", self.image_rows_count, constants::IMAGE_HEIGHT)
+            );
+        }
+
+         if self.image_columns_count != constants::IMAGE_WIDTH {
+            return Err(
+                format!("Number of columns of images ({}) in imageset are not IMAGE_WIDTH {}.", self.image_columns_count, constants::IMAGE_WIDTH)
+            );
+        }
+
+        return Ok(());
+    }
+
 }
 
 #[cfg(test)]

@@ -7,10 +7,8 @@ const IMAGES_DATASET_PATH: &'static str = "data/train-images.idx3-ubyte";
 const LABELS_DATASET_PATH: &'static str = "data/train-labels.idx1-ubyte";
 
 
-fn main() {
-
-    let specific_sample = 1238;
-
+fn main() 
+{
     for sample in training_iterator::training_iterator(
         Path::new(IMAGES_DATASET_PATH),
         Path::new(LABELS_DATASET_PATH)

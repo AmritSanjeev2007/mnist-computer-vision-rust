@@ -67,6 +67,8 @@ fn _seek_past_metadata(imageset_reader: &mut TrainingReader, labelset_reader: &m
     return Ok(());
 }
 
+pub type TrainingIterResult = Result<TrainingSample, String>;
+
 /// Creates an input iterator that traverses through the image and label datasets via a `BufReader` in chunks.'
 ///
 /// - `images_dataset`: A path to a file containing the image data.
@@ -76,9 +78,11 @@ fn _seek_past_metadata(imageset_reader: &mut TrainingReader, labelset_reader: &m
 /// 
 /// ### Notes:
 /// 
-/// **This iterator must only be called after validating the dataset.** i.e., 
+/// **This iterator must only be called after validating the dataset.** i.e., after verifying that\
+/// `TrainingMetadata::load(...).is_valid() == true`.
 /// 
-pub fn training_iterator(images_dataset: &std::path::Path, labels_dataset: &std::path::Path) -> impl Iterator<Item = Result<TrainingSample, String>> {
+pub fn training_iterator(images_dataset: &std::path::Path, labels_dataset: &std::path::Path) -> impl Iterator<Item = TrainingIterResult>
+{
     use genawaiter::sync::Gen   as Generator;
     use genawaiter::sync::Co    as Coroutine;
 
@@ -86,7 +90,7 @@ pub fn training_iterator(images_dataset: &std::path::Path, labels_dataset: &std:
 
     use crate::load::loader::get_file_readers_for_training_data;
 
-    return Generator::new(|co: Coroutine<Result<TrainingSample, String>>| async move {
+    return Generator::new(|co: Coroutine<TrainingIterResult>| async move {
 
         let result = get_file_readers_for_training_data(images_dataset, labels_dataset);
         if let Err(err) = result { co.yield_(Err(err)).await; return; }

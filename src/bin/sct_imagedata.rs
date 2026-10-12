@@ -1,6 +1,5 @@
 use computer_vision_rust::load::{imagedata};
 
-use const_format::formatcp;
 use std::path::{Path};
 
 fn main() {

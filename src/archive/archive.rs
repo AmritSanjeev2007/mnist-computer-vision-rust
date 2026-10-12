@@ -114,8 +114,8 @@ impl SerializedData
         mlp.validate()?;
 
         let layer_connections: Vec<LayerConnectionData> = (0..mlp.num_layers() - 1).map(|i| LayerConnectionData{
-            weight: mlp.get_weight_matrix(i).unwrap().clone(),
-            bias: mlp.get_bias_vector(i).unwrap().clone()
+            weight: mlp.get_weights()[i].clone(),
+            bias: mlp.get_biases()[i].clone()
         }).collect();
 
         return Ok(Self {
@@ -180,10 +180,11 @@ mod tests
     #[test]
     fn from_mlp_copies_network_structure_and_parameters() {
         let mut mlp = MultiLayerPerceptron::new([2, 3, 1].into_iter());
-        mlp.set_weight_matrix(0, |((row, column), value)| *value = (row * 2 + column + 1) as f32).unwrap();
-        mlp.set_bias_vector(0, |(index, value)| *value = (index + 7) as f32).unwrap();
-        mlp.set_weight_matrix(1, |((row, column), value)| *value = (row * 3 + column + 10) as f32).unwrap();
-        mlp.set_bias_vector(1, |(index, value)| *value = (index + 13) as f32).unwrap();
+
+        mlp.get_weight_indexed_iter_mut(0).unwrap().for_each(|((row, column), x)| *x = (row * 2 + column + 1) as f32);
+        mlp.get_bias_indexed_iter_mut(0).unwrap().for_each(|(index, x)| *x = (index + 7) as f32);
+        mlp.get_weight_indexed_iter_mut(1).unwrap().for_each(|((row, column), x)| *x = (row * 3 + column + 10) as f32);
+        mlp.get_bias_indexed_iter_mut(0).unwrap().for_each(|(index, x)| *x = (index + 13) as f32);
 
         let data = SerializedData::from_mlp(&mlp).unwrap();
 
@@ -216,10 +217,10 @@ mod tests
         let mlp = data.to_mlp().unwrap();
 
         assert_eq!(mlp.get_neurons_per_layer(), &vec![2, 3, 1]);
-        assert_eq!(mlp.get_weight_matrix(0).unwrap(), &ndarray::array![[1., 2.], [3., 4.], [5., 6.]]);
-        assert_eq!(mlp.get_bias_vector(0).unwrap(), &ndarray::array![7., 8., 9.]);
-        assert_eq!(mlp.get_weight_matrix(1).unwrap(), &ndarray::array![[10., 11., 12.]]);
-        assert_eq!(mlp.get_bias_vector(1).unwrap(), &ndarray::array![13.]);
+        assert_eq!(mlp.get_weights()[0], ndarray::array![[1., 2.], [3., 4.], [5., 6.]]);
+        assert_eq!(mlp.get_biases()[0], ndarray::array![7., 8., 9.]);
+        assert_eq!(mlp.get_weights()[1], ndarray::array![[10., 11., 12.]]);
+        assert_eq!(mlp.get_biases()[1], ndarray::array![13.]);
     }
 
     #[test]
