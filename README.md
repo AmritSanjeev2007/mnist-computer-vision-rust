@@ -158,25 +158,25 @@ A freshly initialised network gives essentially random answers. Learning means n
 
 1. **Measure how wrong the answer is.** For a training image whose true digit is known, the correct answer is a "one-hot" vector $y$ (1 for the right digit, 0 elsewhere). The **cross-entropy loss** measures how far the prediction is from it:
 
-   $$ L = -\sum_k y_k \ln \hat y_k $$
+$$ L = -\sum_k y_k \ln \hat y_k $$
 
    It is 0 when the network is 100% confident in the right digit and grows the less confident it is.
 
 2. **Find the error at the output.** With softmax and cross-entropy together, the derivative of the loss with respect to the output layer's raw scores is remarkably simple:
 
-   $$ \delta_{\text{out}} = \frac{\partial L}{\partial z_{\text{out}}} = \hat y - y $$
+$$ \delta_{\text{out}} = \frac{\partial L}{\partial z_{\text{out}}} = \hat y - y $$
 
    That is, the error signal is just "what the network said minus what it should have said".
 
 3. **Pass the error backwards.** Using the chain rule, the error signal of a layer is sent back through the same weights it came forward through, and is kept only where the ReLU was active (ReLU's slope is 1 for positive inputs and 0 otherwise):
 
-   $$ \delta_{l-1} = \left(W_l^{\mathsf T}\,\delta_l\right) \odot \mathrm{relu}'(z_{l-1}) $$
+$$ \delta_{l-1} = \left(W_l^{\mathsf T}\,\delta_l\right) \odot \mathrm{relu}'(z_{l-1}) $$
 
    This is the "back" in backpropagation: each layer learns how much it contributed to the final mistake.
 
 4. **Adjust the weights and biases.** The error signal tells us the gradient, i.e. which direction increases the loss, for every parameter: $\partial L/\partial W_l = \delta_l\,a_l^{\mathsf T}$ for the weights, and $\delta_l$ for the biases (with the opposite sign here because the bias is subtracted). **Gradient descent** takes a small step the other way, scaled by the learning rate $\eta$:
 
-   $$ W_l \leftarrow W_l - \eta\,\delta_l\,a_l^{\mathsf T}, \qquad b_l \leftarrow b_l + \eta\,\delta_l $$
+$$ W_l \leftarrow W_l - \eta\,\delta_l\,a_l^{\mathsf T}, \qquad b_l \leftarrow b_l + \eta\,\delta_l $$
 
 Repeating this over tens of thousands of examples gradually shapes the weights into detectors for strokes and shapes that distinguish one digit from another.
 
