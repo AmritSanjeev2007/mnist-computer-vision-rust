@@ -184,7 +184,7 @@ mod tests
         mlp.get_weight_indexed_iter_mut(0).unwrap().for_each(|((row, column), x)| *x = (row * 2 + column + 1) as f32);
         mlp.get_bias_indexed_iter_mut(0).unwrap().for_each(|(index, x)| *x = (index + 7) as f32);
         mlp.get_weight_indexed_iter_mut(1).unwrap().for_each(|((row, column), x)| *x = (row * 3 + column + 10) as f32);
-        mlp.get_bias_indexed_iter_mut(0).unwrap().for_each(|(index, x)| *x = (index + 13) as f32);
+        mlp.get_bias_indexed_iter_mut(1).unwrap().for_each(|(index, x)| *x = (index + 13) as f32);
 
         let data = SerializedData::from_mlp(&mlp).unwrap();
 

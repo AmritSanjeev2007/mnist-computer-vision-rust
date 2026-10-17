@@ -19,6 +19,16 @@
             "name": "sct_train_mlp",
             "path": "src/bin/sct_train_mlp.rs",
             "options": []
+        },
+        {
+            "name": "sct_train_mlp_gpu",
+            "path": "src/bin/sct_train_mlp_gpu.rs",
+            "options": []
+        },
+        {
+            "name": "sct_test_mlp",
+            "path": "src/bin/sct_test_mlp.rs",
+            "options": []
         }
     ]
 }
